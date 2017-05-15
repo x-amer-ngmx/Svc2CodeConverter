@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
+﻿using System.Configuration;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Svc2CodeConverter.CodeBuilder
 {
@@ -15,16 +11,18 @@ namespace Svc2CodeConverter.CodeBuilder
         private static readonly string ServicePoint = ConfigurationManager.AppSettings[$"service_{CurrentPlatform}"];
         private static readonly string ServicePointAddress = ConfigurationManager.AppSettings[$"servicepoint_{((CurrentPlatform != "file") ? "uri" : "file")}"];
 
-        public static string[] EndPointAddress { get; private set; }
-
-
-        public static void InitWsdlConfig()
+        public static string[] EndPointAddress
         {
-            var mass = System.Text.RegularExpressions.Regex.Replace(ServicePointAddress, @"[\s\r\n]+", string.Empty).Split(',');
+            get
+            {
+                if (null != _result) return _result;
+                var mass = System.Text.RegularExpressions.Regex.Replace(ServicePointAddress, @"[\s\r\n]+", string.Empty).Split(',');
+                _result = mass.Select(x => $"{ServicePoint}{((CurrentPlatform != "file") ? @"/" : string.Empty)}{x}{((CurrentPlatform != "file") ? "?wsdl" : string.Empty)}").ToArray();
+                return _result;
+            }
 
-            var result = mass.Select(x => $"{ServicePoint}{((CurrentPlatform != "file") ? @"/" : string.Empty)}{x}{((CurrentPlatform != "file") ? "?wsdl" : string.Empty)}").ToArray();
-
-            EndPointAddress = result;
         }
+
+        private static string[] _result;
     }
 }

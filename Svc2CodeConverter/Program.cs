@@ -1,10 +1,8 @@
 ﻿using System;
-using System.CodeDom;
 using System.Configuration;
 using System.IO;
 using System.Security.AccessControl;
 using FluentNHibernate.Utils;
-using NHibernate.Type;
 using Svc2CodeConverter.CodeBuilder;
 
 namespace Svc2CodeConverter
@@ -21,8 +19,6 @@ namespace Svc2CodeConverter
 
         static void Main(string[] args)
         {
-            GlobalGonfig.InitWsdlConfig();
-
             if (Directory.Exists(DtosDestinationPath))
                 Directory.Delete(DtosDestinationPath, true);
 
