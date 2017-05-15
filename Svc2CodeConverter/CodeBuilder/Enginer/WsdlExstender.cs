@@ -1,17 +1,17 @@
 ﻿using System;
+using System.Text;
+using System.Linq;
 using System.CodeDom;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Xml.Schema;
 using NHibernate.Util;
 
-namespace Svc2CodeConverter
+namespace Svc2CodeConverter.CodeBuilder.Enginer
 {
-    public class LibraryExtender
+    public class WsdlExstender
     {
-        public static CodeGeneratorOptions GetOptions => new CodeGeneratorOptions {
+        public static CodeGeneratorOptions GetOptions => new CodeGeneratorOptions
+        {
             BracingStyle = "C",
             BlankLinesBetweenMembers = true,
             VerbatimOrder = true
@@ -37,7 +37,7 @@ namespace Svc2CodeConverter
                     .Count(ca => ca.Name.Equals("System.Xml.Serialization.XmlElementAttribute")) > 1;
 
             /*Проверить, что тип есть*/
-            if (!hasChoise) return new List<CodeMemberProperty> {property}.ToArray(); 
+            if (!hasChoise) return new List<CodeMemberProperty> { property }.ToArray();
 
             var splittedMembers = new List<CodeMemberProperty>();
 
@@ -113,25 +113,26 @@ namespace Svc2CodeConverter
             /*Попалась одна проблема с приватными свойствами - нужно, чтобы свойство было и если поле, то имя не должно содержать field*/
             foreach (var member in type.Members.Cast<CodeTypeMember>().Where(m => m.Attributes != MemberAttributes.Private)/*.Where(tm => tm is CodeMemberProperty || tm.Name.ToLower().Contains("field"))*/)
             {
-                if(member.CustomAttributes.Cast<CodeAttributeDeclaration>().Any(ca => ca.Name.Equals("System.Xml.Serialization.XmlIgnoreAttribute"))) continue;
+                if (member.CustomAttributes.Cast<CodeAttributeDeclaration>().Any(ca => ca.Name.Equals("System.Xml.Serialization.XmlIgnoreAttribute"))) continue;
                 if (member is CodeMemberProperty)
                 {
                     var castedMember = member as CodeMemberProperty;
-                    
+
                     var newMember = new CodeMemberProperty
                     {
-                        Attributes = (MemberAttributes) 24577, //MemberAttributes.Abstract | MemberAttributes.Public
+                        Attributes = (MemberAttributes)24577, //MemberAttributes.Abstract | MemberAttributes.Public
                         CustomAttributes = castedMember.CustomAttributes,
                         Name = castedMember.Name,
                         Type = castedMember.Type,
-                        HasGet = true, HasSet = true,
+                        HasGet = true,
+                        HasSet = true,
                     };
 
                     var additionalTypes = ProcessChoiceMember(newMember, type.Name);
                     newMembersList.AddRange(additionalTypes);
                     continue;
                 }
-                
+
                 newMembersList.Add(member);
             }
 
@@ -183,7 +184,7 @@ namespace Svc2CodeConverter
 
                     foreach (var hasProp in type.Members.OfType<CodeMemberProperty>())
                     {
-                        if(!hasProp.Name.ToLower().Equals(fieldLeft.FieldName.ToLower().Replace("field", ""))) continue;
+                        if (!hasProp.Name.ToLower().Equals(fieldLeft.FieldName.ToLower().Replace("field", ""))) continue;
                         fieldLeft.FieldName = hasProp.Name;
                     }
                 }

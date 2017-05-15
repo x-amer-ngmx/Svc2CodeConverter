@@ -1,9 +1,11 @@
-﻿using System;
+﻿using FluentNHibernate.Utils;
+using Newtonsoft.Json;
+using NHibernate.Util;
+using System;
 using System.CodeDom;
 using System.CodeDom.Compiler;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -12,21 +14,11 @@ using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.Threading.Tasks;
 using System.Xml;
-using FluentNHibernate.Utils;
-using Newtonsoft.Json;
-using NHibernate.Util;
 
-namespace Svc2CodeConverter
+namespace Svc2CodeConverter.CodeBuilder.Enginer
 {
-    public class Library : LibraryExtender
+    public class CSharpGeneration : WsdlExstender
     {
-        private static readonly string SitLogin = ConfigurationManager.AppSettings["basic_user"] ?? "sit";
-        private static readonly string SitPassword = ConfigurationManager.AppSettings["basic_password"] ?? "rZ_GG72XS^Vf55ZW";
-        private static readonly string CurrentPlatform = ConfigurationManager.AppSettings["current_platform"];
-        private static readonly string ServicePointAddress = ConfigurationManager.AppSettings["servicepoint_" + CurrentPlatform];
-        private static readonly string FilePatch = ConfigurationManager.AppSettings["servicepoint_patch"];
-
-        private static bool IsPatch = CurrentPlatform == "patch";
 
         public static CodeCompileUnit[] LoadSvcData(string[] serviceEndpoints, string globalNamespaceName)
         {
@@ -38,13 +30,11 @@ namespace Svc2CodeConverter
                 Console.WriteLine($"{serviceEndpoint} start");
                 MetadataSet metadataSet = null;
                 Task<MetadataSet> mexClientData = null;
-                MetadataExchangeClient mexClient =null;
+                MetadataExchangeClient mexClient = null;
 
 
-                if (!IsPatch)
-                {
                     var serviceUri =
-                        new Uri(serviceEndpoint.Replace("https://api.dom.gosuslugi.ru", ServicePointAddress) + "?wsdl");
+                        new Uri(serviceEndpoint);
 
                     var isHttps = 0 == serviceUri.ToString().IndexOf("https://", StringComparison.Ordinal);
                     var basicHttpBinding = new BasicHttpBinding
@@ -79,30 +69,17 @@ namespace Svc2CodeConverter
                         new MetadataExchangeClient(basicHttpBinding)
                         {
                             MaximumResolvedReferences = 1000,
-                            HttpCredentials = new NetworkCredential(SitLogin, SitPassword),
+                            HttpCredentials = new NetworkCredential(GlobalGonfig.SitLogin, GlobalGonfig.SitPassword),
                             ResolveMetadataReferences = true
                         };
                     mexClientData = mexClient.GetMetadataAsync(serviceUri, MetadataExchangeClientMode.HttpGet);
-                }
-                else
-                {
-                    var fPatch = $@"file:///{FilePatch}{serviceEndpoint}";
-
-                    mexClient =
-                                new MetadataExchangeClient(new Uri(fPatch), MetadataExchangeClientMode.MetadataExchange)
-                                {
-                                    MaximumResolvedReferences = 1000,
-                                    ResolveMetadataReferences = true
-                                };
-                    mexClientData = mexClient.GetMetadataAsync();
-                }
 
                 do
                 {
                     try
                     {
-                            mexClientData.Wait();
-                            metadataSet = mexClientData.Result;
+                        mexClientData.Wait();
+                        metadataSet = mexClientData.Result;
                     }
                     catch (Exception exc)
                     {
@@ -168,11 +145,11 @@ namespace Svc2CodeConverter
         public static CodeCompileUnit[] GenerateCodeUnits(CodeCompileUnit[] units)
         {
             var allTypes = new Dictionary<string, List<string>>();
-            
+
             var codeExportUnits = new Dictionary<string, CodeCompileUnit>();
 
             var importSettings = File.ReadAllText(@"c:\\imports.json");
-            var imports = JsonConvert.DeserializeObject < Dictionary < string, List <string> > > (importSettings);
+            var imports = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(importSettings);
 
             foreach (var unit in units)
             {
@@ -186,18 +163,18 @@ namespace Svc2CodeConverter
                         ProcessType(type);
 
                         var nsname = GetNamespaceFromAttributes(new KeyValuePair<string, CodeTypeDeclaration>(unit.UserData["ModuleName"] + "." + type.Name, type));
-                        type.UserData["FullTypeName"] = unit.UserData["NamespaceName"] + nsname+'.'+ type.Name;
+                        type.UserData["FullTypeName"] = unit.UserData["NamespaceName"] + nsname + '.' + type.Name;
 
                         if (!codeExportUnits.ContainsKey(nsname))
                         {
                             var codeNamespace = new CodeNamespace("");
-                            if(imports.ContainsKey(nsname))
+                            if (imports.ContainsKey(nsname))
                                 codeNamespace.Imports.AddRange(imports[nsname].Select(t => new CodeNamespaceImport(t)).ToArray());
                             allTypes.Add(nsname, new List<string>());
                             codeExportUnits.Add(nsname, new CodeCompileUnit
                             {
                                 Namespaces = { codeNamespace, new CodeNamespace(unit.UserData["NamespaceName"] + nsname) },
-                                UserData = { { "ModuleName", nsname }, { "NamespaceName" , unit.UserData["NamespaceName"] } }//Не типы сервисов, а общие типы, которые присутствуют в модулях и у них одно и то же имя
+                                UserData = { { "ModuleName", nsname }, { "NamespaceName", unit.UserData["NamespaceName"] } }//Не типы сервисов, а общие типы, которые присутствуют в модулях и у них одно и то же имя
                             });
                         }
 
@@ -221,7 +198,7 @@ namespace Svc2CodeConverter
         /// <param name="units"></param>
         /// <param name="path"></param>
         /// <param name="isVirtual"></param>
-        public static void CreateServiceSupportWithUnits(CodeCompileUnit[] units, string path, bool isVirtual=false)
+        public static void CreateServiceSupportWithUnits(CodeCompileUnit[] units, string path, bool isVirtual = false)
         {
             var codeDomProvider = CodeDomProvider.CreateProvider("C#");
 
@@ -273,16 +250,16 @@ namespace Svc2CodeConverter
                 .Where(t => false == t.UserData["ModuleName"].ToString().Equals("Xmldsig")).Select(t => t.Namespaces))
             {
                 var typesFromNamespace = ns[1].Types.Cast<CodeTypeDeclaration>()
-                    .Where(t => t.IsClass && 
-                    !t.CustomAttributes.Cast<CodeAttributeDeclaration>().Any(ca=>ca.Name.Equals("System.ServiceModel.MessageContractAttribute")) &&
-                    !(t.BaseTypes.Cast<CodeTypeReference>().Any(ctr => ctr.BaseType.Equals("HeaderType")||
+                    .Where(t => t.IsClass &&
+                    !t.CustomAttributes.Cast<CodeAttributeDeclaration>().Any(ca => ca.Name.Equals("System.ServiceModel.MessageContractAttribute")) &&
+                    !(t.BaseTypes.Cast<CodeTypeReference>().Any(ctr => ctr.BaseType.Equals("HeaderType") ||
                         ctr.BaseType.IndexOf("System.ServiceModel.ClientBase", StringComparison.Ordinal) == 0)) &&
                         !t.Name.Equals("HeaderType") &&
                         !t.Name.Equals("BaseType") &&
                         !t.Name.Equals("Fault") && t.IsClass
                     ).ToArray();
-                
-                if(!typesFromNamespace.Any()) continue;
+
+                if (!typesFromNamespace.Any()) continue;
 
                 var newNs = new CodeNamespace(ns[1].Name + "Dto");
                 var nhMappedTypes = SetNhibernateMapping(typesFromNamespace.DeepClone(), types);
@@ -290,11 +267,12 @@ namespace Svc2CodeConverter
 
                 newMappingUnits.Add(new CodeCompileUnit
                 {
-                    Namespaces = { new CodeNamespace(), newNs }, UserData = { { "ModuleName", ns[1].Name + "Dto"} }
+                    Namespaces = { new CodeNamespace(), newNs },
+                    UserData = { { "ModuleName", ns[1].Name + "Dto" } }
                 });
-                
+
             }
-            
+
             return newMappingUnits.ToArray();
         }
 
@@ -311,7 +289,7 @@ namespace Svc2CodeConverter
 
         private static CodeTypeDeclaration[] SetNhibernateMapping(CodeTypeDeclaration[] deepClone, Dictionary<string, CodeTypeDeclaration> types)
         {
-            if(!deepClone.Any())
+            if (!deepClone.Any())
                 return deepClone;
 
             var newTypes = new List<CodeTypeDeclaration>();
@@ -374,7 +352,7 @@ namespace Svc2CodeConverter
         /// <returns></returns>
         private static CodeTypeDeclaration[] Change2DtoMapClass(CodeTypeDeclaration[] deepClone, Dictionary<string, CodeTypeDeclaration> types)
         {
-            foreach (var t in types.Values.Where(tv => deepClone.Any(c=>tv.Name + "Dto" == c.Name)))//deepClone.Select(p => types.Where(m => m.Value.Name.Equals(p.Name.Replace("Dto", "")))))
+            foreach (var t in types.Values.Where(tv => deepClone.Any(c => tv.Name + "Dto" == c.Name)))//deepClone.Select(p => types.Where(m => m.Value.Name.Equals(p.Name.Replace("Dto", "")))))
             {
                 var theType = deepClone.First(p => p.Name == t.Name + "Dto");
                 theType.CustomAttributes.Clear();
@@ -382,7 +360,7 @@ namespace Svc2CodeConverter
                 //t.Members.Clear();
                 theType.Attributes = MemberAttributes.Public;
                 theType.BaseTypes.Clear();
-                theType.BaseTypes.Add(new CodeTypeReference("MapAction", new CodeTypeReference(t.Name+"Dto")));
+                theType.BaseTypes.Add(new CodeTypeReference("MapAction", new CodeTypeReference(t.Name + "Dto")));
                 theType.Name += "Map";
 
                 var param = t.UserData["FunctionName"].ToString().Split('.');
@@ -402,14 +380,14 @@ namespace Svc2CodeConverter
 
                 foreach (var member in theType.Members.OfType<CodeMemberProperty>())
                 {
-                    var isMap = types.Where(p => (p.Key+" ").Contains('.'+member.Type.BaseType+" ")).Any(pt => pt.Value.IsEnum);
+                    var isMap = types.Where(p => (p.Key + " ").Contains('.' + member.Type.BaseType + " ")).Any(pt => pt.Value.IsEnum);
 
                     if (member.Type.BaseType.IndexOf("System.", StringComparison.Ordinal) == 0 || isMap)//CommonLanguageRuntimeType
                     {
                         var mapTypeExpression = new CodeMethodInvokeExpression(null, "Map",
                             new CodeArgumentReferenceExpression($"map => map.{member.Name}"));
                         var customTypeExpression = new CodeMethodInvokeExpression(mapTypeExpression, "CustomType<int>");//Добавление преобразования типа при SByte
-                        ctor.Statements.Add( new CodeExpressionStatement(member.Type.BaseType.Equals("System.SByte") ? customTypeExpression : mapTypeExpression) );
+                        ctor.Statements.Add(new CodeExpressionStatement(member.Type.BaseType.Equals("System.SByte") ? customTypeExpression : mapTypeExpression));
 
                         continue;
                     }
@@ -442,113 +420,7 @@ namespace Svc2CodeConverter
         /// <returns></returns>
         private static CodeTypeDeclaration GenerateMappingForGivenType(CodeTypeDeclaration sampleType)
         {
-            //var ctd = new CodeTypeDeclaration(sampleType.Name + "Map")
-            //{
-            //    Attributes = MemberAttributes.Public,
-            //    IsClass = true,
-            //    BaseTypes = { new CodeTypeReference("MapAction", new CodeTypeReference(sampleType.Name)) },
-            //    Members = {
-            //        new CodeConstructor{
-            //            Attributes = MemberAttributes.Public,
-            //            BaseConstructorArgs =
-            //            {
-            //                new CodeArgumentReferenceExpression($"\"{NormalizeStringForNhEntity(sampleType.UserData["contract_name"].ToString())}\""),
-            //                new CodeArgumentReferenceExpression($"\"{NormalizeStringForNhEntity(sampleType.Name.Replace("Dto", ""))}\""),
-            //                new CodeArgumentReferenceExpression("id => id.Id")
-            //            }
-            //        }
-            //    }
-            //};
-
-            //var ctor = ctd.Members.Cast<CodeConstructor>().First();
-
-            //foreach (var member in sampleType.Members.Cast<CodeMemberProperty>())
-            //{
-
-            //    if (member.Type.BaseType.IndexOf("System.", StringComparison.Ordinal) == 0)//CommonLanguageRuntimeType
-            //    {
-            //        ctor.Statements.Add(
-            //            new CodeExpressionStatement(
-            //                new CodeMethodInvokeExpression(null, "Map", new CodeArgumentReferenceExpression($"map => map.{member.Name}"))));
-            //        continue;
-            //    }
-
-            //    if (member.Type.BaseType.Contains("IList"))//IList - SetThisColumnKey(HasMany(j => j.[PropName]).Cascade.All());
-            //    {
-            //        ctor.Statements.Add(
-            //            new CodeExpressionStatement(
-            //                new CodeMethodInvokeExpression(null, "SetThisColumnKey", new CodeArgumentReferenceExpression($"HasMany(hm => hm.{member.Name}).Cascade.All()"))));
-            //        continue;
-            //    }
-
-            //    ctor.Statements.Add(
-            //        new CodeExpressionStatement(
-            //            new CodeMethodInvokeExpression(null, "References", new CodeArgumentReferenceExpression($"r => r.{member.Name}"))));
-            //}
-
-            //return ctd;
             return new CodeTypeDeclaration();
         }
     }
 }
-
-/*var mappingScheme = new List<GroupClass>();
-
-            var baseEntity = CreateBaseEntity();
-
-            foreach (var mapUnit in mappedUnits)
-            {
-                if( !mapUnit.UserData.Contains("ModuleName") || 
-                    string.IsNullOrEmpty(mapUnit.UserData["ModuleName"].ToString()) *//*|| 
-                    !mapUnit.UserData["ModuleName"].ToString().Contains('.')*//*) continue;
-                var p0 = mapUnit.UserData["ModuleName"].ToString();
-
-                if (mappingScheme.Any(t => t.Name.Equals(p0)) == false)
-                {//Мапинги для пространств имён
-                    mappingScheme.Add(new GroupClass(p0));
-                }
-
-                //mappingScheme[unitName]
-                Console.WriteLine(p0);
-                foreach (var mapNs in mapUnit.Namespaces.Cast<CodeNamespace>().Where(t => !string.IsNullOrEmpty(t.Name)))
-                {
-                    var p1 = $"{p0}.{mapNs.Name}";
-                    if (!mappingScheme.Any(t => t.Name.Equals(p1)))
-                    {
-                        mappingScheme.Add(new GroupClass(p1));
-                    }
-
-                    Console.WriteLine(mapNs.Name);
-                    foreach (var mapType in mapNs.Types.Cast<CodeTypeDeclaration>().Where(t => !string.IsNullOrEmpty(t.Name)))
-                    {
-                        var p2 = $"{p1}.{mapType.Name}";
-                        if (!mappingScheme.Any(t => t.Name.Equals(p2)))
-                        {
-                            mappingScheme.Add(new GroupClass(p2));
-                        }
-
-                        mappingScheme.First(t => t.Name.Equals(p2)).Members.AddRange(mapType.Members.OfType<CodeMemberProperty>().Select(t=>new GroupClass(t.Name)).ToArray());
-
-                        Console.WriteLine($"{mapType.Name} :-> {mapType.Name}Dto");
-                        //foreach (var member in mapType.Members.Cast<CodeTypeMember>().Where(m => !string.IsNullOrEmpty(m.Name)))
-                        //{
-                        //    var p3 = $"{p2}.{member.Name}";
-                        //    if (!mappingScheme.Any(t => t.Name.Equals(p3)))
-                        //    {
-                        //        mappingScheme.Add(new GroupClass(p3));
-                        //    }
-                        //}
-
-                        AppendBaseType(mapType, baseEntity);
-mapType.Name += "Dto";
-                    }
-
-                    var arrayEls = mapNs.Types.Cast<CodeTypeDeclaration>().ToArray();
-
-var mappedTypes = SetNhibernateMapping(arrayEls);
-
-mapNs.Types.AddRange(mappedTypes);
-
-                    if(!mapNs.Name.Equals("Base")) continue;
-                    mapNs.Types.Add(baseEntity);
-                }*/

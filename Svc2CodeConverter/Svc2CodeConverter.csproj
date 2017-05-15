@@ -63,10 +63,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AbstractIndentedTextWriter.cs" />
-    <Compile Include="GroupClass.cs" />
-    <Compile Include="Library.cs" />
-    <Compile Include="LibraryExtender.cs" />
+    <Compile Include="CodeBuilder\GlobalGonfig.cs" />
+    <Compile Include="CodeBuilder\Enginer\CSharpGeneration.cs" />
+    <Compile Include="CodeBuilder\Enginer\WsdlExstender.cs" />
+    <Compile Include="CodeBuilder\Exemple\AbstractIndentedTextWriter.cs" />
+    <Compile Include="CodeBuilder\GenerateBuild.cs" />
+    <Compile Include="CodeBuilder\Model\GroupClass.cs" />
+    <Compile Include="CodeBuilder\Model\WsdlModel.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -74,8 +77,8 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="TreeNode.cs" />
-    <Compile Include="WsdlDocumentationImporter.cs" />
+    <Compile Include="Trash\TreeNode.cs" />
+    <Compile Include="CodeBuilder\Exemple\WsdlDocumentationImporter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">
@@ -89,6 +92,7 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
