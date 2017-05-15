@@ -9,40 +9,31 @@ namespace Svc2CodeConverter
 {
     class Program
     {
-        private static readonly string ContractsDestinationPath =
-            ConfigurationManager.AppSettings["contracts_destination_path"] ?? @"C:\INTEGRATION\Svc2CodeCvtResult";
-
-        private static readonly bool ISPath = ConfigurationManager.AppSettings["current_platform"] == "patch";
-
-        private static readonly string DtosDestinationPath = ConfigurationManager.AppSettings["dtos_destination_path"] ?? @"C:\INTEGRATION\Svc2CodeCvtResult\Dtos";
-
 
         static void Main(string[] args)
         {
-            if (Directory.Exists(DtosDestinationPath))
-                Directory.Delete(DtosDestinationPath, true);
+            
+            if (Directory.Exists(GlobalConfig.DtosDestinationPath))
+                Directory.Delete(GlobalConfig.DtosDestinationPath, true);
 
-            /*if (Directory.Exists(ContractsDestinationPath))
-                Directory.Delete(ContractsDestinationPath, true);*/
-
-            var unitsData = GenerateBuild.LoadSvcData(GlobalGonfig.EndPointAddress, "Integration.");
+            var unitsData = GenerateBuild.LoadSvcData(GlobalConfig.EndPointAddress, "Integration.");
 
             var formattedUnits = GenerateBuild.GenerateCodeUnits(unitsData);
 
-            if (!Directory.Exists(ContractsDestinationPath))
+            if (!Directory.Exists(GlobalConfig.ContractsDestinationPath))
             {
-                Directory.CreateDirectory(ContractsDestinationPath);
-                Directory.SetAccessControl(ContractsDestinationPath, new DirectorySecurity());
+                Directory.CreateDirectory(GlobalConfig.ContractsDestinationPath);
+                Directory.SetAccessControl(GlobalConfig.ContractsDestinationPath, new DirectorySecurity());
             }
 
-            Directory.CreateDirectory(DtosDestinationPath);
-            Directory.SetAccessControl(DtosDestinationPath, new DirectorySecurity());
+            Directory.CreateDirectory(GlobalConfig.DtosDestinationPath);
+            Directory.SetAccessControl(GlobalConfig.DtosDestinationPath, new DirectorySecurity());
 
             var mappedUnits = GenerateBuild.MapUnits(formattedUnits.DeepClone());
 
-            GenerateBuild.CreateServiceSupportWithUnits(mappedUnits, DtosDestinationPath, true);
+            GenerateBuild.CreateServiceSupportWithUnits(mappedUnits, GlobalConfig.DtosDestinationPath, true);
 
-            GenerateBuild.CreateServiceSupportWithUnits(formattedUnits, ContractsDestinationPath);
+            GenerateBuild.CreateServiceSupportWithUnits(formattedUnits, GlobalConfig.ContractsDestinationPath);
             Console.WriteLine(@"---------------------------------Done!");
             Console.ReadKey();
         }

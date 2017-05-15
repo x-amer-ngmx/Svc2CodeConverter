@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace Svc2CodeConverter.CodeBuilder
 {
-    public static class GlobalGonfig
+    public static class GlobalConfig
     {
         public static readonly string SitLogin = ConfigurationManager.AppSettings["basic_user"] ?? "sit";
         public static readonly string SitPassword = ConfigurationManager.AppSettings["basic_password"] ?? "rZ_GG72XS^Vf55ZW";
@@ -29,6 +29,11 @@ namespace Svc2CodeConverter.CodeBuilder
 
         }
 
-        
+        public static readonly string ContractsDestinationPath =
+            ConfigurationManager.AppSettings["contracts_destination_path"] ?? @"C:\INTEGRATION\Svc2CodeCvtResult";
+
+        public static readonly string DtosDestinationPath = ConfigurationManager.AppSettings["dtos_destination_path"] ?? @"C:\INTEGRATION\Svc2CodeCvtResult\Dtos";
+
+
     }
 }

@@ -69,7 +69,7 @@ namespace Svc2CodeConverter.CodeBuilder.Enginer
                         new MetadataExchangeClient(basicHttpBinding)
                         {
                             MaximumResolvedReferences = 1000,
-                            HttpCredentials = new NetworkCredential(GlobalGonfig.SitLogin, GlobalGonfig.SitPassword),
+                            HttpCredentials = new NetworkCredential(GlobalConfig.SitLogin, GlobalConfig.SitPassword),
                             ResolveMetadataReferences = true
                         };
                     mexClientData = mexClient.GetMetadataAsync(serviceUri, MetadataExchangeClientMode.HttpGet);
@@ -148,7 +148,7 @@ namespace Svc2CodeConverter.CodeBuilder.Enginer
 
             var codeExportUnits = new Dictionary<string, CodeCompileUnit>();
 
-            var importSettings = File.ReadAllText(@"c:\\imports.json");
+            var importSettings = File.ReadAllText(@"d:\\imports.json");
             var imports = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(importSettings);
 
             foreach (var unit in units)
@@ -242,7 +242,7 @@ namespace Svc2CodeConverter.CodeBuilder.Enginer
         public static CodeCompileUnit[] MapUnits(CodeCompileUnit[] mappedUnits)
         {
             var types = map2Types_Level_One(mappedUnits);
-            CvtAndSave2Json(types, @"C:\scheme.json");
+            CvtAndSave2Json(types, @"D:\scheme.json");
 
             var newMappingUnits = new List<CodeCompileUnit>();
 

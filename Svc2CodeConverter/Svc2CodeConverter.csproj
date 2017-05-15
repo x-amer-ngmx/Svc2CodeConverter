@@ -63,7 +63,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CodeBuilder\GlobalGonfig.cs" />
+    <Compile Include="CodeBuilder\GlobalConfig.cs" />
     <Compile Include="CodeBuilder\Enginer\CSharpGeneration.cs" />
     <Compile Include="CodeBuilder\Enginer\WsdlExstender.cs" />
     <Compile Include="CodeBuilder\Exemple\AbstractIndentedTextWriter.cs" />
@@ -94,6 +94,11 @@
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>; Move all assemblies and related files to lib folder
+ROBOCOPY "$(TargetDir) " "$(TargetDir)lib\ " /XF *.frx *.exe *.pdb *.config *.manifest /IS /MOV
+if %25errorlevel%25 leq 4 exit 0 else exit %25errorlevel%25</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
